@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Rota para servir o frontend React
+Route::get('/{any}', function () {
+    return view('app');
+})->where('any', '.*');
+
+// Rota raiz também serve o frontend
 Route::get('/', function () {
-    return view('welcome');
+    return view('app');
 }); 

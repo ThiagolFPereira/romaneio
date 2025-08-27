@@ -43,8 +43,8 @@ RUN composer install --no-dev --optimize-autoloader
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage
 
-# Copiar build do frontend
-COPY --from=frontend-builder /app/frontend/dist /var/www/html/public/frontend
+# Copiar build do frontend para o diretório public
+COPY --from=frontend-builder /app/frontend/dist /var/www/html/public
 
 # Expor porta (Render usa variável PORT)
 EXPOSE $PORT
