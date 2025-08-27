@@ -3,11 +3,17 @@
 # Script de inicialização para o Render
 echo "🚀 Iniciando Sistema de Romaneio..."
 echo "📁 Diretório atual: $(pwd)"
-echo "🔍 Variáveis de ambiente:"
-echo "   PORT: $PORT"
+
+# Debug: Mostrar TODAS as variáveis de ambiente
+echo "🔍 TODAS as variáveis de ambiente disponíveis:"
+env | sort
+
+echo "🔍 Variáveis de banco específicas:"
 echo "   DB_HOST: $DB_HOST"
 echo "   DB_DATABASE: $DB_DATABASE"
 echo "   DB_USERNAME: $DB_USERNAME"
+echo "   DB_PASSWORD: $DB_PASSWORD"
+echo "   DATABASE_URL: $DATABASE_URL"
 
 # Gerar uma chave base64 manualmente ANTES de criar o .env
 echo "🔑 Gerando chave da aplicação manualmente..."
