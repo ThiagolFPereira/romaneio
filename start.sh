@@ -17,7 +17,6 @@ APP_NAME="Sistema de Romaneio"
 APP_ENV=production
 APP_DEBUG=false
 LOG_LEVEL=error
-APP_KEY=base64:placeholder
 DB_CONNECTION=pgsql
 DB_HOST=
 DB_PORT=5432
@@ -49,13 +48,14 @@ if [ ! -f artisan ]; then
     exit 1
 fi
 
-# Gerar chave da aplicação (substituir a placeholder)
+# Gerar chave da aplicação usando artisan
 echo "🔑 Gerando chave da aplicação..."
 php artisan key:generate --force
 
 # Verificar se a chave foi gerada
-if grep -q "APP_KEY=base64:" .env && ! grep -q "APP_KEY=base64:placeholder" .env; then
+if grep -q "APP_KEY=base64:" .env; then
     echo "✅ Chave da aplicação gerada com sucesso"
+    echo "🔑 Chave gerada: $(grep 'APP_KEY=' .env)"
 else
     echo "❌ Erro ao gerar chave da aplicação"
     echo "📋 Conteúdo final do .env:"
