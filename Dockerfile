@@ -10,10 +10,6 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Debug: verificar o que foi gerado
-RUN ls -la dist/
-RUN ls -la dist/assets/
-
 # Estágio do backend
 FROM php:8.2-fpm-alpine
 
@@ -53,10 +49,6 @@ COPY --from=frontend-builder /app/frontend/dist /var/www/html/public
 # Copiar script de inicialização
 COPY start.sh /var/www/html/start.sh
 RUN chmod +x /var/www/html/start.sh
-
-# Debug: verificar se os arquivos foram copiados
-RUN ls -la public/
-RUN ls -la public/assets/
 
 # Expor porta (Render usa variável PORT)
 EXPOSE $PORT
