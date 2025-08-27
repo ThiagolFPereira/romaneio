@@ -17,6 +17,7 @@ APP_NAME="Sistema de Romaneio"
 APP_ENV=production
 APP_DEBUG=false
 LOG_LEVEL=error
+APP_KEY=
 DB_CONNECTION=pgsql
 DB_HOST=
 DB_PORT=5432
