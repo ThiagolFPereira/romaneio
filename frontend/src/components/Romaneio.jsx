@@ -97,7 +97,7 @@ const Romaneio = () => {
                 }
             }
 
-            const url = `http://localhost:8000/api/historico?${params.toString()}`;
+            const url = `https://romaneio-ag92.onrender.com/api/historico?${params.toString()}`;
             console.log('URL da requisição:', url);
 
             const response = await axios.get(url);
@@ -141,7 +141,7 @@ const Romaneio = () => {
                 }
             }
 
-            const url = `http://localhost:8000/api/historico/estatisticas?${params.toString()}`;
+            const url = `https://romaneio-ag92.onrender.com/api/historico/estatisticas?${params.toString()}`;
             console.log('URL da requisição para estatísticas:', url);
 
             const response = await axios.get(url);
@@ -158,7 +158,7 @@ const Romaneio = () => {
         }
 
         try {
-            await axios.delete(`http://localhost:8000/api/historico/${id}`);
+            await axios.delete(`https://romaneio-ag92.onrender.com/api/historico/${id}`);
 
             // Recarrega o histórico e estatísticas
             carregarHistorico();
@@ -346,7 +346,7 @@ const Romaneio = () => {
                 data_emissao: new Date().toLocaleDateString('pt-BR')
             };
 
-            const response = await axios.post('http://localhost:8000/api/notas/salvar', dadosNota);
+            const response = await axios.post('https://romaneio-ag92.onrender.com/api/notas/salvar', dadosNota);
 
             if (response.data.success) {
                 setDadosNota(dadosNota);
@@ -532,7 +532,7 @@ const Romaneio = () => {
 
         try {
             // Faz a requisição para a API
-            const response = await axios.post('http://localhost:8000/api/notas/consultar', {
+            const response = await axios.post('https://romaneio-ag92.onrender.com/api/notas/consultar', {
                 chave_acesso: chaveInput
             });
 
@@ -541,7 +541,7 @@ const Romaneio = () => {
 
             // Salva automaticamente no histórico
             try {
-                await axios.post('http://localhost:8000/api/historico/salvar', response.data);
+                await axios.post('https://romaneio-ag92.onrender.com/api/historico/salvar', response.data);
                 console.log('Nota salva automaticamente no histórico');
                 carregarHistorico();
                 carregarEstatisticas();
@@ -584,7 +584,7 @@ const Romaneio = () => {
 
         try {
             // Faz a requisição para salvar no histórico
-            await axios.post('http://localhost:8000/api/historico/salvar', dadosNota);
+            await axios.post('https://romaneio-ag92.onrender.com/api/historico/salvar', dadosNota);
 
             // Sucesso - exibe alerta e limpa o formulário
             alert('Nota salva com sucesso!');

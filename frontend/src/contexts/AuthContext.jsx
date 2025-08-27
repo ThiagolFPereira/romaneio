@@ -57,8 +57,9 @@ export const AuthProvider = ({ children }) => {
      */
     const checkAuthStatus = async () => {
         try {
-            await axios.get('http://localhost:8000/api/auth/user');
-            setLoading(false);
+            const response = await axios.get('https://romaneio-ag92.onrender.com/api/auth/user');
+            setUser(response.data.user);
+            setIsAuthenticated(true);
         } catch (error) {
             console.error('Token inválido:', error);
             logout();
@@ -83,7 +84,7 @@ export const AuthProvider = ({ children }) => {
         try {
             // Tenta fazer logout no servidor se houver token
             if (token) {
-                await axios.post('http://localhost:8000/api/auth/logout');
+                await axios.post('https://romaneio-ag92.onrender.com/api/auth/logout');
             }
         } catch (error) {
             console.error('Erro ao fazer logout no servidor:', error);

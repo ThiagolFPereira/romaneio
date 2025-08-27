@@ -56,7 +56,7 @@ const Register = ({ onLogin, onSwitchToLogin }) => {
 
         try {
             // Faz a requisição de registro
-            const response = await axios.post('http://localhost:8000/api/auth/register', formData);
+            const response = await axios.post('https://romaneio-ag92.onrender.com/api/auth/register', formData);
 
             // Salva o token no localStorage
             localStorage.setItem('token', response.data.token);

@@ -42,7 +42,7 @@ const Login = ({ onLogin, onSwitchToRegister }) => {
 
         try {
             // Faz a requisição de login
-            const response = await axios.post('http://localhost:8000/api/auth/login', formData);
+            const response = await axios.post('https://romaneio-ag92.onrender.com/api/auth/login', formData);
 
             // Salva o token no localStorage
             localStorage.setItem('token', response.data.token);
