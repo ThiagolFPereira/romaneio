@@ -119,6 +119,15 @@ fi
 echo "🗄️  Executando migrations..."
 php artisan migrate --force
 
+# Verificar se a migration específica foi executada
+echo "🔍 Verificando se a migration dos campos adicionais foi executada..."
+if php artisan migrate:status | grep -q "2025_08_07_183222_add_fields_to_historico_notas_table"; then
+    echo "✅ Migration dos campos adicionais já foi executada"
+else
+    echo "⚠️  Migration dos campos adicionais não foi executada, forçando..."
+    php artisan migrate --path=database/migrations/2025_08_07_183222_add_fields_to_historico_notas_table.php --force
+fi
+
 # Executar seeders
 echo "🌱 Executando seeders..."
 php artisan db:seed --force
