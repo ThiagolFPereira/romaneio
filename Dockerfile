@@ -57,5 +57,5 @@ RUN ls -la public/assets/
 # Expor porta (Render usa variável PORT)
 EXPOSE $PORT
 
-# Comando para iniciar o servidor
-CMD php artisan serve --host=0.0.0.0 --port=$PORT
+# Comando para iniciar o servidor com migrations e seeders automáticos
+CMD sh -c "php artisan key:generate --force && php artisan migrate --force --seed && php artisan serve --host=0.0.0.0 --port=$PORT"
