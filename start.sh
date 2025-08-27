@@ -12,18 +12,18 @@ echo "   DB_USERNAME: $DB_USERNAME"
 # Verificar se o .env existe, se não, criar um básico
 if [ ! -f .env ]; then
     echo "📝 Criando arquivo .env básico..."
-    cat > .env << EOF
+    cat > .env << 'EOF'
 APP_NAME="Sistema de Romaneio"
 APP_ENV=production
 APP_DEBUG=false
 LOG_LEVEL=error
 APP_KEY=
 DB_CONNECTION=pgsql
-DB_HOST=\${DB_HOST}
+DB_HOST=
 DB_PORT=5432
-DB_DATABASE=\${DB_DATABASE}
-DB_USERNAME=\${DB_USERNAME}
-DB_PASSWORD=\${DB_PASSWORD}
+DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
 CACHE_DRIVER=file
 SESSION_DRIVER=file
 QUEUE_CONNECTION=sync
@@ -32,6 +32,16 @@ EOF
 else
     echo "✅ .env já existe"
 fi
+
+# Substituir as variáveis de ambiente no .env
+echo "🔧 Configurando variáveis de ambiente..."
+sed -i "s/DB_HOST=/DB_HOST=$DB_HOST/" .env
+sed -i "s/DB_DATABASE=/DB_DATABASE=$DB_DATABASE/" .env
+sed -i "s/DB_USERNAME=/DB_USERNAME=$DB_USERNAME/" .env
+sed -i "s/DB_PASSWORD=/DB_PASSWORD=$DB_PASSWORD/" .env
+
+echo "📋 Conteúdo do .env após configuração:"
+cat .env
 
 # Verificar se o artisan existe
 if [ ! -f artisan ]; then
@@ -48,6 +58,8 @@ if grep -q "APP_KEY=base64:" .env; then
     echo "✅ Chave da aplicação gerada com sucesso"
 else
     echo "❌ Erro ao gerar chave da aplicação"
+    echo "📋 Conteúdo final do .env:"
+    cat .env
     exit 1
 fi
 
