@@ -1,0 +1,72 @@
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: romaneio_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: romaneio
+      POSTGRES_USER: romaneio_user
+      POSTGRES_PASSWORD: romaneio_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - romaneio_network
+
+  # Backend Laravel
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: romaneio_backend_prod
+    restart: unless-stopped
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: romaneio
+      DB_USERNAME: romaneio_user
+      DB_PASSWORD: romaneio_password
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_URL: http://localhost:8000
+    ports:
+      - "8000:9000"
+    depends_on:
+      - postgres
+    networks:
+      - romaneio_network
+    command: >
+      sh -c "
+        php artisan config:cache &&
+        php artisan route:cache &&
+        php artisan view:cache &&
+        php artisan migrate --force &&
+        php-fpm
+      "
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: romaneio_frontend_prod
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - romaneio_network
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  romaneio_network:
+    driver: bridge 
