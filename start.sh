@@ -128,6 +128,19 @@ else
     php artisan migrate --path=database/migrations/2025_08_07_183222_add_fields_to_historico_notas_table.php --force
 fi
 
+# FORÇAR execução da migration mesmo se já foi marcada como executada
+echo "🔧 Forçando execução da migration dos campos adicionais..."
+php artisan migrate:rollback --step=1 --force
+php artisan migrate --force
+
+# Verificar se as colunas existem no banco
+echo "🔍 Verificando se as colunas foram criadas no banco..."
+if php artisan tinker --execute="echo 'Verificando colunas: '; \$columns = \DB::select('SELECT column_name FROM information_schema.columns WHERE table_name = \'historico_notas\' AND column_name IN (\'numero_nota\', \'status\', \'data_emissao\')'); foreach(\$columns as \$col) { echo \$col->column_name . ' '; } echo PHP_EOL; exit();" 2>/dev/null; then
+    echo "✅ Colunas verificadas no banco"
+else
+    echo "⚠️  Não foi possível verificar as colunas"
+fi
+
 # Executar seeders
 echo "🌱 Executando seeders..."
 php artisan db:seed --force
