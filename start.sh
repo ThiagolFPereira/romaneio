@@ -15,6 +15,34 @@ echo "   DB_USERNAME: $DB_USERNAME"
 echo "   DB_PASSWORD: $DB_PASSWORD"
 echo "   DATABASE_URL: $DATABASE_URL"
 
+# Verificar se estamos no Render e ajustar variáveis de banco
+if [ "$RENDER" = "true" ]; then
+    echo "🌐 Detectado ambiente Render"
+    
+    # Se DB_HOST for "postgres" (inválido), usar variáveis padrão do Render
+    if [ "$DB_HOST" = "postgres" ]; then
+        echo "⚠️  DB_HOST inválido detectado, usando variáveis padrão do Render"
+        
+        # Tentar usar variáveis padrão do Render PostgreSQL
+        if [ -n "$RENDER_INTERNAL_HOSTNAME" ]; then
+            DB_HOST="$RENDER_INTERNAL_HOSTNAME"
+            echo "✅ Usando RENDER_INTERNAL_HOSTNAME: $DB_HOST"
+        else
+            # Fallback para localhost se não houver hostname interno
+            DB_HOST="localhost"
+            echo "⚠️  Usando fallback localhost"
+        fi
+    fi
+else
+    echo "🏠 Ambiente local detectado"
+fi
+
+echo "🔧 Variáveis de banco finais:"
+echo "   DB_HOST: $DB_HOST"
+echo "   DB_DATABASE: $DB_DATABASE"
+echo "   DB_USERNAME: $DB_USERNAME"
+echo "   DB_PASSWORD: $DB_PASSWORD"
+
 # Gerar uma chave base64 manualmente ANTES de criar o .env
 echo "🔑 Gerando chave da aplicação manualmente..."
 APP_KEY_VALUE=$(openssl rand -base64 32)
@@ -54,6 +82,17 @@ if grep -q "APP_KEY=base64:" .env; then
     echo "✅ Chave da aplicação está definida no .env"
 else
     echo "❌ Erro: APP_KEY não foi definida corretamente"
+    exit 1
+fi
+
+# Testar conexão com o banco antes de executar migrations
+echo "🔌 Testando conexão com o banco de dados..."
+if php artisan tinker --execute="echo 'Conexão OK'; exit();" 2>/dev/null; then
+    echo "✅ Conexão com banco estabelecida"
+else
+    echo "❌ Erro na conexão com banco"
+    echo "🔍 Verificando configurações..."
+    php artisan config:show database
     exit 1
 fi
 
