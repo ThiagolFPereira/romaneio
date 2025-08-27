@@ -9,38 +9,32 @@ echo "   DB_HOST: $DB_HOST"
 echo "   DB_DATABASE: $DB_DATABASE"
 echo "   DB_USERNAME: $DB_USERNAME"
 
-# Verificar se o .env existe, se não, criar um básico
-if [ ! -f .env ]; then
-    echo "📝 Criando arquivo .env básico..."
-    cat > .env << 'EOF'
+# Gerar uma chave base64 manualmente ANTES de criar o .env
+echo "🔑 Gerando chave da aplicação manualmente..."
+APP_KEY_VALUE=$(openssl rand -base64 32)
+echo "✅ Chave gerada: $APP_KEY_VALUE"
+
+# Criar o .env com a chave já definida
+echo "📝 Criando arquivo .env com chave pré-definida..."
+cat > .env << EOF
 APP_NAME="Sistema de Romaneio"
 APP_ENV=production
 APP_DEBUG=false
 LOG_LEVEL=error
-APP_KEY=
+APP_KEY=base64:$APP_KEY_VALUE
 DB_CONNECTION=pgsql
-DB_HOST=
+DB_HOST=$DB_HOST
 DB_PORT=5432
-DB_DATABASE=
-DB_USERNAME=
-DB_PASSWORD=
+DB_DATABASE=$DB_DATABASE
+DB_USERNAME=$DB_USERNAME
+DB_PASSWORD=$DB_PASSWORD
 CACHE_DRIVER=file
 SESSION_DRIVER=file
 QUEUE_CONNECTION=sync
 EOF
-    echo "✅ .env criado com sucesso"
-else
-    echo "✅ .env já existe"
-fi
 
-# Substituir as variáveis de ambiente no .env
-echo "🔧 Configurando variáveis de ambiente..."
-sed -i "s/DB_HOST=/DB_HOST=$DB_HOST/" .env
-sed -i "s/DB_DATABASE=/DB_DATABASE=$DB_DATABASE/" .env
-sed -i "s/DB_USERNAME=/DB_USERNAME=$DB_USERNAME/" .env
-sed -i "s/DB_PASSWORD=/DB_PASSWORD=$DB_PASSWORD/" .env
-
-echo "📋 Conteúdo do .env após configuração:"
+echo "✅ .env criado com sucesso"
+echo "📋 Conteúdo do .env:"
 cat .env
 
 # Verificar se o artisan existe
@@ -49,18 +43,11 @@ if [ ! -f artisan ]; then
     exit 1
 fi
 
-# Gerar chave da aplicação usando artisan
-echo "🔑 Gerando chave da aplicação..."
-php artisan key:generate --force
-
-# Verificar se a chave foi gerada
+# Verificar se a chave foi definida corretamente
 if grep -q "APP_KEY=base64:" .env; then
-    echo "✅ Chave da aplicação gerada com sucesso"
-    echo "🔑 Chave gerada: $(grep 'APP_KEY=' .env)"
+    echo "✅ Chave da aplicação está definida no .env"
 else
-    echo "❌ Erro ao gerar chave da aplicação"
-    echo "📋 Conteúdo final do .env:"
-    cat .env
+    echo "❌ Erro: APP_KEY não foi definida corretamente"
     exit 1
 fi
 
