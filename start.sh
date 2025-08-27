@@ -123,6 +123,14 @@ php artisan migrate --force
 echo "🌱 Executando seeders..."
 php artisan db:seed --force
 
+# Verificar se o usuário foi criado
+echo "👤 Verificando se o usuário foi criado..."
+if php artisan tinker --execute="echo 'Usuários: ' . App\Models\User::count(); exit();" 2>/dev/null; then
+    echo "✅ Usuário verificado no banco"
+else
+    echo "⚠️  Não foi possível verificar usuários"
+fi
+
 # Verificar se o servidor pode iniciar
 echo "🌐 Iniciando servidor na porta $PORT..."
 echo "🔍 Verificando se a porta $PORT está disponível..."
