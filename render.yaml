@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: romaneio-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: APP_NAME
+        value: "Sistema de Romaneio"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: error
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: CACHE_DRIVER
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+    buildCommand: |
+      echo "Build iniciado..."
+      echo "Instalando dependências do frontend..."
+      cd frontend && npm ci --only=production
+      echo "Build do frontend..."
+      npm run build
+      echo "Build do backend..."
+      cd ../backend && composer install --no-dev --optimize-autoloader
+      echo "Build concluído!"
+    startCommand: |
+      echo "Iniciando aplicação..."
+      cd backend
+      php artisan key:generate --force
+      php artisan migrate --force
+      php artisan serve --host=0.0.0.0 --port=$PORT
