@@ -33,6 +33,25 @@ if [ "$RENDER" = "true" ]; then
             echo "⚠️  Usando fallback localhost"
         fi
     fi
+    
+    # Verificar se temos DATABASE_URL (formato padrão do Render)
+    if [ -n "$DATABASE_URL" ]; then
+        echo "✅ DATABASE_URL encontrada, extraindo variáveis..."
+        # Extrair variáveis da DATABASE_URL
+        # Formato: postgresql://user:pass@host:port/database
+        DB_HOST=$(echo "$DATABASE_URL" | sed -n 's/.*@\([^:]*\):.*/\1/p')
+        DB_PORT=$(echo "$DATABASE_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+        DB_DATABASE=$(echo "$DATABASE_URL" | sed -n 's/.*\/\([^?]*\).*/\1/p')
+        DB_USERNAME=$(echo "$DATABASE_URL" | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
+        DB_PASSWORD=$(echo "$DATABASE_URL" | sed -n 's/.*:\/\/[^:]*:\([^@]*\)@.*/\1/p')
+        
+        echo "🔧 Variáveis extraídas da DATABASE_URL:"
+        echo "   DB_HOST: $DB_HOST"
+        echo "   DB_PORT: $DB_PORT"
+        echo "   DB_DATABASE: $DB_DATABASE"
+        echo "   DB_USERNAME: $DB_USERNAME"
+        echo "   DB_PASSWORD: $DB_PASSWORD"
+    fi
 else
     echo "🏠 Ambiente local detectado"
 fi
@@ -58,7 +77,7 @@ LOG_LEVEL=error
 APP_KEY=base64:$APP_KEY_VALUE
 DB_CONNECTION=pgsql
 DB_HOST=$DB_HOST
-DB_PORT=5432
+DB_PORT=${DB_PORT:-5432}
 DB_DATABASE=$DB_DATABASE
 DB_USERNAME=$DB_USERNAME
 DB_PASSWORD=$DB_PASSWORD
