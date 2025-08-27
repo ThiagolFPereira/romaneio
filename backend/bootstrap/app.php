@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'log.consultas' => \App\Http\Middleware\LogConsultasMiddleware::class,
         ]);
+        
+        // Registra middleware para arquivos estáticos
+        $middleware->append(\App\Http\Middleware\StaticAssets::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
