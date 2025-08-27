@@ -59,10 +59,11 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await axios.get('https://romaneio-ag92.onrender.com/api/auth/user');
             setUser(response.data.user);
-            // setIsAuthenticated não existe, removido
+            setLoading(false); // Definir loading como false após verificação bem-sucedida
         } catch (error) {
             console.error('Token inválido:', error);
             logout();
+            setLoading(false); // Definir loading como false mesmo em caso de erro
         }
     };
 
