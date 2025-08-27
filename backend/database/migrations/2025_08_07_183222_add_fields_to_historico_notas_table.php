@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('historico_notas', function (Blueprint $table) {
-            //
+            $table->string('numero_nota')->nullable()->after('valor_total');
+            $table->string('status')->nullable()->after('numero_nota');
+            $table->string('data_emissao')->nullable()->after('status');
         });
     }
 
@@ -22,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('historico_notas', function (Blueprint $table) {
-            //
+            $table->dropColumn(['numero_nota', 'status', 'data_emissao']);
         });
     }
 };
