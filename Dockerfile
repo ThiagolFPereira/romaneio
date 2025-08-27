@@ -50,6 +50,10 @@ RUN chown -R www-data:www-data /var/www/html \
 # Copiar build do frontend para o diretório public
 COPY --from=frontend-builder /app/frontend/dist /var/www/html/public
 
+# Copiar script de inicialização
+COPY start.sh /var/www/html/start.sh
+RUN chmod +x /var/www/html/start.sh
+
 # Debug: verificar se os arquivos foram copiados
 RUN ls -la public/
 RUN ls -la public/assets/
@@ -57,5 +61,5 @@ RUN ls -la public/assets/
 # Expor porta (Render usa variável PORT)
 EXPOSE $PORT
 
-# Comando para iniciar o servidor com migrations e seeders automáticos
-CMD sh -c "php artisan key:generate --force && php artisan migrate --force --seed && php artisan serve --host=0.0.0.0 --port=$PORT"
+# Comando para iniciar o servidor usando o script
+CMD ["/var/www/html/start.sh"]
