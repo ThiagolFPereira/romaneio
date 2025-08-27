@@ -128,9 +128,11 @@ else
     php artisan migrate --path=database/migrations/2025_08_07_183222_add_fields_to_historico_notas_table.php --force
 fi
 
-# FORÇAR execução da migration mesmo se já foi marcada como executada
-echo "🔧 Forçando execução da migration dos campos adicionais..."
-php artisan migrate:rollback --step=1 --force
+# RESETAR COMPLETAMENTE o banco e executar migrations do zero
+echo "🔧 Problema detectado: colunas não existem. Resetando banco..."
+echo "⚠️  ATENÇÃO: Todos os dados serão perdidos!"
+php artisan migrate:reset --force
+echo "✅ Banco resetado, executando todas as migrations do zero..."
 php artisan migrate --force
 
 # Verificar se as colunas existem no banco
