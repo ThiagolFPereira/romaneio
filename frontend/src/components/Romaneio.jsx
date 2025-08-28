@@ -1147,13 +1147,14 @@ const Romaneio = () => {
                 ) : (
                     <>
                         <div className="historico-table">
-                            <table>
+                            <table className="historico-table">
                                 <thead>
                                     <tr>
-                                        <th>Data/Hora</th>
+                                        <th>Data</th>
                                         <th>Chave de Acesso</th>
+                                        <th>Emitente</th>
                                         <th>Destinatário</th>
-                                        <th>Valor</th>
+                                        <th>Valor Total</th>
                                         <th>Produtos</th>
                                         <th>Qtd</th>
                                         <th>Endereço</th>
@@ -1161,9 +1162,15 @@ const Romaneio = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {historico.length === 0 ? (
+                                    {loadingHistorico ? (
                                         <tr>
-                                            <td colSpan="8" className="no-data">
+                                            <td colSpan="9" className="loading-cell">
+                                                <div className="loading-spinner">Carregando...</div>
+                                            </td>
+                                        </tr>
+                                    ) : historico.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" className="empty-cell">
                                                 Nenhuma nota fiscal encontrada
                                             </td>
                                         </tr>
@@ -1172,7 +1179,8 @@ const Romaneio = () => {
                                             <tr key={item.id}>
                                                 <td>{formatarData(item.created_at)}</td>
                                                 <td className="chave-acesso">{item.chave_acesso}</td>
-                                                <td>{item.destinatario}</td>
+                                                <td>{item.emitente || 'Não informado'}</td>
+                                                <td>{item.destinatario || 'Não informado'}</td>
                                                 <td className="valor">{formatarValor(item.valor_total)}</td>
                                                 <td className="produtos-cell">
                                                     {item.produtos && item.produtos.length > 0 ? (
@@ -1380,12 +1388,21 @@ const Romaneio = () => {
                                     </div>
                                 </div>
 
+                                {/* Emitente */}
+                                <div className="detalhes-secao">
+                                    <h4>🏭 Emitente</h4>
+                                    <div className="detalhe-item">
+                                        <span className="detalhe-label">Nome:</span>
+                                        <span className="detalhe-valor">{notaSelecionada.emitente || 'Não informado'}</span>
+                                    </div>
+                                </div>
+
                                 {/* Destinatário */}
                                 <div className="detalhes-secao">
                                     <h4>🏢 Destinatário</h4>
                                     <div className="detalhe-item">
                                         <span className="detalhe-label">Nome:</span>
-                                        <span className="detalhe-valor">{notaSelecionada.destinatario}</span>
+                                        <span className="detalhe-valor">{notaSelecionada.destinatario || 'Não informado'}</span>
                                     </div>
                                     {notaSelecionada.endereco && (
                                         <div className="detalhe-item">
