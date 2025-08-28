@@ -237,14 +237,15 @@ class NotaFiscalService
                 
                 return [
                     'chave_acesso' => $chaveAcesso,
-                    'destinatario' => $data['razao_social'] ?? 'Empresa não encontrada',
+                    'emitente' => $data['razao_social'] ?? 'Empresa não encontrada',
+                    'destinatario' => $data['nome_fantasia'] ?? null, // não garantido; manter null se desconhecido
                     'valor_total' => number_format($valor, 2, '.', ''),
                     'status' => 'Autorizada',
                     'data_emissao' => "{$mes}/{$ano}",
                     'numero_nota' => $numero,
                     'produtos' => $produtos,
                     'endereco' => $endereco,
-                    'motivo' => 'Dados reais da empresa + valores baseados na chave'
+                    'motivo' => 'Emitente via CNPJ (BrasilAPI); demais dados baseados na chave'
                 ];
             }
 
@@ -304,7 +305,8 @@ class NotaFiscalService
         
         return [
             'chave_acesso' => $chaveAcesso,
-            'destinatario' => $empresa,
+            'emitente' => $empresa,
+            'destinatario' => null,
             'valor_total' => number_format($valor, 2, '.', ''),
             'status' => 'Autorizada',
             'data_emissao' => "{$mes}/{$ano}",
@@ -540,20 +542,24 @@ class NotaFiscalService
     private function processarRespostaPortalPublico(string $html, string $chaveAcesso): ?array
     {
         try {
-            // Verifica se a consulta foi bem-sucedida
             if (strpos($html, 'NFe não encontrada') !== false || strpos($html, 'não encontrada') !== false) {
                 Log::warning('NFe não encontrada no portal público', ['chave' => $chaveAcesso]);
                 return null;
             }
 
-            // Verifica se há erro na página
             if (strpos($html, 'erro') !== false && strpos($html, 'Erro') !== false) {
                 Log::warning('Erro detectado na consulta', ['chave' => $chaveAcesso]);
                 return null;
             }
 
-            // Extrai dados da nota fiscal usando padrões do site oficial
             $dados = [];
+
+            // Extrai emitente, quando disponível
+            if (preg_match('/Emitente[^>]*>([^<]+)</', $html, $emitente)) {
+                $dados['emitente'] = trim($emitente[1]);
+            } elseif (preg_match('/Emitente.*?Nome[^>]*>([^<]+)</', $html, $emitente)) {
+                $dados['emitente'] = trim($emitente[1]);
+            }
 
             // Extrai destinatário (padrão do site oficial)
             if (preg_match('/Destinatário[^>]*>([^<]+)</', $html, $destinatario)) {
@@ -586,29 +592,26 @@ class NotaFiscalService
                 $dados['numero_nota'] = trim($numero[1]);
             }
 
-            // Se conseguiu extrair dados básicos
-            if (!empty($dados['destinatario']) || !empty($dados['valor_total'])) {
+            if (!empty($dados['destinatario']) || !empty($dados['valor_total']) || !empty($dados['emitente'])) {
                 $dados['chave_acesso'] = $chaveAcesso;
                 $dados['motivo'] = 'Dados obtidos do portal oficial da SEFAZ';
-                
-                // Log de sucesso
+
                 Log::info('Consulta SEFAZ bem-sucedida', [
                     'chave' => $chaveAcesso,
+                    'emitente' => $dados['emitente'] ?? 'N/A',
                     'destinatario' => $dados['destinatario'] ?? 'N/A',
                     'valor' => $dados['valor_total'] ?? 'N/A'
                 ]);
-                
+
                 return $dados;
             }
 
-            // Log quando não consegue extrair dados
             Log::warning('Não foi possível extrair dados da resposta SEFAZ', [
                 'chave' => $chaveAcesso,
                 'html_length' => strlen($html)
             ]);
 
             return null;
-
         } catch (\Exception $e) {
             Log::warning('Erro ao processar resposta portal público', [
                 'chave' => $chaveAcesso,
@@ -772,11 +775,13 @@ class NotaFiscalService
             $xMotivo = (string) $xml->xpath('//xMotivo')[0] ?? '';
             
             if ($cStat === '100') { // Nota autorizada
-                $destinatario = (string) $xml->xpath('//dest/xNome')[0] ?? 'Destinatário não informado';
+                $emitente = (string) $xml->xpath('//emit/xNome')[0] ?? null;
+                $destinatario = (string) $xml->xpath('//dest/xNome')[0] ?? null;
                 $valorTotal = (string) $xml->xpath('//total/ICMSTot/vNF')[0] ?? '0.00';
                 
                 return [
                     'chave_acesso' => $chaveAcesso,
+                    'emitente' => $emitente,
                     'destinatario' => $destinatario,
                     'valor_total' => $valorTotal,
                     'status' => 'Autorizada',
