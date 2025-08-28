@@ -7,6 +7,7 @@ use App\Models\HistoricoNota;
 use App\Services\NotaFiscalService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Controller para gerenciar operações relacionadas a notas fiscais
@@ -81,6 +82,13 @@ class NotaFiscalController extends Controller
      */
     public function salvar(Request $request): JsonResponse
     {
+        // Log para debug
+        \Log::info('Método salvar chamado', [
+            'user_id' => $request->user() ? $request->user()->id : 'null',
+            'request_data' => $request->all(),
+            'headers' => $request->headers->all()
+        ]);
+
         // Valida os dados obrigatórios
         $request->validate([
             'chave_acesso' => 'required|string|size:44',
@@ -96,18 +104,43 @@ class NotaFiscalController extends Controller
         ]);
 
         try {
-            // Cria um novo registro no histórico
-            $historico = HistoricoNota::create([
+            // Verifica se o usuário está autenticado
+            if (!$request->user()) {
+                \Log::error('Usuário não autenticado no método salvar');
+                return response()->json([
+                    'error' => 'Usuário não autenticado'
+                ], 401);
+            }
+
+            // Monta os dados obrigatórios
+            $data = [
                 'user_id' => $request->user()->id,
                 'chave_acesso' => $request->chave_acesso,
                 'destinatario' => $request->destinatario,
                 'valor_total' => $request->valor_total,
-                'produtos' => $request->produtos ?? null,
-                'endereco' => $request->endereco ?? null,
-                'numero_nota' => $request->numero_nota ?? null,
-                'status' => $request->status ?? null,
-                'data_emissao' => $request->data_emissao ?? null
-            ]);
+            ];
+
+            // Campos opcionais apenas se existirem na tabela
+            if (Schema::hasColumn('historico_notas', 'produtos')) {
+                $data['produtos'] = $request->produtos ?? null;
+            }
+            if (Schema::hasColumn('historico_notas', 'endereco')) {
+                $data['endereco'] = $request->endereco ?? null;
+            }
+            if (Schema::hasColumn('historico_notas', 'numero_nota')) {
+                $data['numero_nota'] = $request->numero_nota ?? null;
+            }
+            if (Schema::hasColumn('historico_notas', 'status')) {
+                $data['status'] = $request->status ?? null;
+            }
+            if (Schema::hasColumn('historico_notas', 'data_emissao')) {
+                $data['data_emissao'] = $request->data_emissao ?? null;
+            }
+
+            // Cria um novo registro no histórico
+            $historico = HistoricoNota::create($data);
+
+            \Log::info('Nota fiscal salva com sucesso', ['historico_id' => $historico->id]);
 
             return response()->json([
                 'message' => 'Nota fiscal salva com sucesso no histórico',
@@ -115,6 +148,11 @@ class NotaFiscalController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            \Log::error('Erro ao salvar nota fiscal', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             // Verifica se é erro de chave duplicada
             if (str_contains($e->getMessage(), 'Duplicate entry')) {
                 return response()->json([
@@ -123,7 +161,7 @@ class NotaFiscalController extends Controller
             }
 
             return response()->json([
-                'error' => 'Erro ao salvar nota fiscal no histórico'
+                'error' => 'Erro ao salvar nota fiscal no histórico: ' . $e->getMessage()
             ], 500);
         }
     }
