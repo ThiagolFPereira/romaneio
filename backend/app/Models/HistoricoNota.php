@@ -24,7 +24,8 @@ class HistoricoNota extends Model
     protected $fillable = [
         'user_id',
         'chave_acesso',
-        'destinatario', 
+        'emitente',
+        'destinatario',
         'valor_total',
         'produtos',
         'endereco',

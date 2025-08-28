@@ -127,6 +127,9 @@ class NotaFiscalController extends Controller
             if (Schema::hasColumn('historico_notas', 'endereco')) {
                 $data['endereco'] = $request->endereco ?? null;
             }
+            if (Schema::hasColumn('historico_notas', 'emitente')) {
+                $data['emitente'] = $request->emitente ?? null;
+            }
             if (Schema::hasColumn('historico_notas', 'numero_nota')) {
                 $data['numero_nota'] = $request->numero_nota ?? null;
             }
