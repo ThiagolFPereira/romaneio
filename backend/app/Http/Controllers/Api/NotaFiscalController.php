@@ -24,7 +24,7 @@ class NotaFiscalController extends Controller
 
     /**
      * Consulta os dados de uma nota fiscal pela chave de acesso
-     * Integra com a API da SEFAZ para buscar dados reais
+     * Integra com APIs da SEFAZ e Meu Danfe para buscar dados reais
      * 
      * @param Request $request
      * @return JsonResponse
@@ -60,7 +60,7 @@ class NotaFiscalController extends Controller
 
             if (!$dadosNota) {
                 return response()->json([
-                    'error' => 'Não foi possível consultar a nota fiscal na SEFAZ. Verifique se a chave está correta ou tente novamente mais tarde.'
+                    'error' => 'Não foi possível consultar a nota fiscal. Verifique se a chave está correta ou tente novamente mais tarde.'
                 ], 404);
             }
 
