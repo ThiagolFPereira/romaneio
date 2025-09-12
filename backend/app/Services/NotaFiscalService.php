@@ -902,7 +902,17 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
     private function extrairEnderecoDestinatario(\SimpleXMLElement $xml): string
     {
         try {
-            $endereco = $xml->infNFe->dest->enderDest ?? null;
+            // Tenta diferentes caminhos para encontrar o endereço
+            $endereco = null;
+            
+            // Caminho 1: nfeProc > NFe > infNFe > dest > enderDest
+            if (isset($xml->NFe->infNFe->dest->enderDest)) {
+                $endereco = $xml->NFe->infNFe->dest->enderDest;
+            }
+            // Caminho 2: infNFe > dest > enderDest (sem nfeProc)
+            elseif (isset($xml->infNFe->dest->enderDest)) {
+                $endereco = $xml->infNFe->dest->enderDest;
+            }
             
             if (!$endereco) {
                 return 'Endereço não disponível';
@@ -1536,6 +1546,7 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
             return '';
         }
     }
+
 
 
     /**
