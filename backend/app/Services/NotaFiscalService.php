@@ -266,8 +266,21 @@ class NotaFiscalService
                     'content_type' => $response->header('Content-Type')
                 ]);
                 
-                // Retorna os dados reais processados via Meu Danfe
-                return $this->processarDadosReaisViaMeuDanfe($dadosReais, $chaveAcesso);
+                // Tenta extrair XML da resposta do Meu Danfe
+                $xmlNFe = $this->extrairXmlDaRespostaMeuDanfe($response->body());
+                
+                if ($xmlNFe) {
+                    Log::info('XML extraído da resposta do Meu Danfe', [
+                        'chave' => $chaveAcesso,
+                        'xml_length' => strlen($xmlNFe)
+                    ]);
+                    
+                    // Processa XML completo para extrair todos os dados
+                    return $this->processarXmlCompletoMeuDanfe($xmlNFe, $chaveAcesso);
+                } else {
+                    // Se não conseguir extrair XML, usa dados reais
+                    return $this->processarDadosReaisViaMeuDanfe($dadosReais, $chaveAcesso);
+                }
             } else {
                 Log::warning('API Meu Danfe falhou, mas retornando dados reais', [
                     'chave' => $chaveAcesso,
@@ -1254,6 +1267,156 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
     }
 
     /**
+     * Extrai XML da resposta do Meu Danfe
+     * 
+     * @param string $responseBody
+     * @return string|null
+     */
+    private function extrairXmlDaRespostaMeuDanfe(string $responseBody): ?string
+    {
+        try {
+            // Tenta extrair XML de diferentes formatos de resposta
+            $patterns = [
+                '/<nfeProc[^>]*>.*?<\/nfeProc>/s',  // nfeProc completo
+                '/<NFe[^>]*>.*?<\/NFe>/s',          // NFe sem nfeProc
+                '/<nfe[^>]*>.*?<\/nfe>/s',          // nfe minúsculo
+                '/<xml[^>]*>.*?<\/xml>/s',          // XML genérico
+            ];
+            
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $responseBody, $matches)) {
+                    Log::info('XML encontrado na resposta do Meu Danfe', [
+                        'pattern' => $pattern,
+                        'xml_length' => strlen($matches[0])
+                    ]);
+                    return $matches[0];
+                }
+            }
+            
+            // Se não encontrou XML, tenta extrair de JSON
+            $data = json_decode($responseBody, true);
+            if (isset($data['xml'])) {
+                return $data['xml'];
+            }
+            if (isset($data['nfe'])) {
+                return $data['nfe'];
+            }
+            if (isset($data['xmlNFe'])) {
+                return $data['xmlNFe'];
+            }
+            
+            Log::warning('XML não encontrado na resposta do Meu Danfe', [
+                'response_preview' => substr($responseBody, 0, 500)
+            ]);
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair XML da resposta do Meu Danfe', [
+                'erro' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Processa XML completo do Meu Danfe para extrair todos os dados
+     * 
+     * @param string $xmlNFe
+     * @param string $chaveAcesso
+     * @return array
+     */
+    private function processarXmlCompletoMeuDanfe(string $xmlNFe, string $chaveAcesso): array
+    {
+        try {
+            $xml = simplexml_load_string($xmlNFe);
+            if (!$xml) {
+                Log::warning('Erro ao processar XML do Meu Danfe', ['chave' => $chaveAcesso]);
+                return $this->processarDadosReaisViaMeuDanfe([], $chaveAcesso);
+            }
+            
+            // Extrai todos os dados possíveis do XML
+            $dados = $this->extrairTodosDadosDoXml($xml, $chaveAcesso);
+            
+            Log::info('Dados completos extraídos do XML do Meu Danfe', [
+                'chave' => $chaveAcesso,
+                'tem_emitente' => !empty($dados['emitente']),
+                'tem_destinatario' => !empty($dados['destinatario']),
+                'tem_endereco' => !empty($dados['endereco']),
+                'tem_produtos' => !empty($dados['produtos']),
+                'qtd_produtos' => count($dados['produtos'] ?? [])
+            ]);
+            
+            return $dados;
+            
+        } catch (\Exception $e) {
+            Log::warning('Erro ao processar XML completo do Meu Danfe', [
+                'chave' => $chaveAcesso,
+                'erro' => $e->getMessage()
+            ]);
+            return $this->processarDadosReaisViaMeuDanfe([], $chaveAcesso);
+        }
+    }
+
+    /**
+     * Extrai todos os dados possíveis do XML da NFe
+     * 
+     * @param \SimpleXMLElement $xml
+     * @param string $chaveAcesso
+     * @return array
+     */
+    private function extrairTodosDadosDoXml(\SimpleXMLElement $xml, string $chaveAcesso): array
+    {
+        try {
+            // Encontra o nó principal da NFe
+            $nfe = $xml->NFe ?? $xml;
+            $infNFe = $nfe->infNFe ?? $nfe;
+            
+            // Extrai dados do emitente
+            $emitente = $this->extrairDadosEmitente($infNFe);
+            
+            // Extrai dados do destinatário
+            $destinatario = $this->extrairDadosDestinatario($infNFe);
+            
+            // Extrai endereço do destinatário
+            $endereco = $this->extrairEnderecoDestinatario($xml);
+            
+            // Extrai produtos
+            $produtos = $this->extrairProdutosCompletos($infNFe);
+            
+            // Extrai dados da nota
+            $dadosNota = $this->extrairDadosNota($infNFe, $chaveAcesso);
+            
+            // Extrai impostos
+            $impostos = $this->extrairImpostos($infNFe);
+            
+            return [
+                'chave_acesso' => $chaveAcesso,
+                'emitente' => $emitente['razao_social'] ?? 'Emitente não informado',
+                'destinatario' => $destinatario['razao_social'] ?? 'Destinatário não informado',
+                'valor_total' => $dadosNota['valor_total'] ?? '0.00',
+                'status' => 'Autorizada',
+                'data_emissao' => $dadosNota['data_emissao'] ?? date('d/m/Y'),
+                'numero_nota' => $dadosNota['numero_nota'] ?? substr($chaveAcesso, 25, 9),
+                'produtos' => $produtos,
+                'endereco' => $endereco,
+                'impostos' => $impostos,
+                'emitente_completo' => $emitente,
+                'destinatario_completo' => $destinatario,
+                'motivo' => 'Dados completos extraídos do XML via Meu Danfe',
+                'fonte' => 'XML Completo'
+            ];
+            
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair dados completos do XML', [
+                'chave' => $chaveAcesso,
+                'erro' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
      * Extrai endereço dos dados reais obtidos da SEFAZ
      * 
      * @param array $enderDest
@@ -1295,6 +1458,392 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
                 'erro' => $e->getMessage()
             ]);
             return '';
+        }
+    }
+
+    /**
+     * Extrai dados completos do emitente
+     * 
+     * @param \SimpleXMLElement $infNFe
+     * @return array
+     */
+    private function extrairDadosEmitente(\SimpleXMLElement $infNFe): array
+    {
+        try {
+            $emit = $infNFe->emit ?? null;
+            if (!$emit) {
+                return [];
+            }
+            
+            return [
+                'razao_social' => (string)($emit->xNome ?? ''),
+                'nome_fantasia' => (string)($emit->xFant ?? ''),
+                'cnpj' => (string)($emit->CNPJ ?? ''),
+                'inscricao_estadual' => (string)($emit->IE ?? ''),
+                'inscricao_municipal' => (string)($emit->IM ?? ''),
+                'endereco' => $this->extrairEnderecoEmitente($emit),
+                'telefone' => (string)($emit->telefone ?? ''),
+                'email' => (string)($emit->email ?? '')
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair dados do emitente', ['erro' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados completos do destinatário
+     * 
+     * @param \SimpleXMLElement $infNFe
+     * @return array
+     */
+    private function extrairDadosDestinatario(\SimpleXMLElement $infNFe): array
+    {
+        try {
+            $dest = $infNFe->dest ?? null;
+            if (!$dest) {
+                return [];
+            }
+            
+            return [
+                'razao_social' => (string)($dest->xNome ?? ''),
+                'nome_fantasia' => (string)($dest->xFant ?? ''),
+                'cnpj' => (string)($dest->CNPJ ?? ''),
+                'cpf' => (string)($dest->CPF ?? ''),
+                'inscricao_estadual' => (string)($dest->IE ?? ''),
+                'inscricao_municipal' => (string)($dest->IM ?? ''),
+                'endereco' => $this->extrairEnderecoDestinatarioCompleto($dest),
+                'telefone' => (string)($dest->telefone ?? ''),
+                'email' => (string)($dest->email ?? '')
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair dados do destinatário', ['erro' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Extrai endereço completo do emitente
+     * 
+     * @param \SimpleXMLElement $emit
+     * @return string
+     */
+    private function extrairEnderecoEmitente(\SimpleXMLElement $emit): string
+    {
+        try {
+            $enderEmit = $emit->enderEmit ?? null;
+            if (!$enderEmit) {
+                return '';
+            }
+            
+            $partes = [];
+            
+            if (!empty((string)$enderEmit->xLgr)) {
+                $partes[] = (string)$enderEmit->xLgr;
+            }
+            
+            if (!empty((string)$enderEmit->nro)) {
+                $partes[] = (string)$enderEmit->nro;
+            }
+            
+            if (!empty((string)$enderEmit->xBairro)) {
+                $partes[] = (string)$enderEmit->xBairro;
+            }
+            
+            if (!empty((string)$enderEmit->xMun)) {
+                $partes[] = (string)$enderEmit->xMun;
+            }
+            
+            if (!empty((string)$enderEmit->UF)) {
+                $partes[] = (string)$enderEmit->UF;
+            }
+            
+            if (!empty((string)$enderEmit->CEP)) {
+                $partes[] = 'CEP: ' . (string)$enderEmit->CEP;
+            }
+            
+            return implode(', ', $partes);
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Extrai endereço completo do destinatário
+     * 
+     * @param \SimpleXMLElement $dest
+     * @return string
+     */
+    private function extrairEnderecoDestinatarioCompleto(\SimpleXMLElement $dest): string
+    {
+        try {
+            $enderDest = $dest->enderDest ?? null;
+            if (!$enderDest) {
+                return '';
+            }
+            
+            $partes = [];
+            
+            if (!empty((string)$enderDest->xLgr)) {
+                $partes[] = (string)$enderDest->xLgr;
+            }
+            
+            if (!empty((string)$enderDest->nro)) {
+                $partes[] = (string)$enderDest->nro;
+            }
+            
+            if (!empty((string)$enderDest->xBairro)) {
+                $partes[] = (string)$enderDest->xBairro;
+            }
+            
+            if (!empty((string)$enderDest->xMun)) {
+                $partes[] = (string)$enderDest->xMun;
+            }
+            
+            if (!empty((string)$enderDest->UF)) {
+                $partes[] = (string)$enderDest->UF;
+            }
+            
+            if (!empty((string)$enderDest->CEP)) {
+                $partes[] = 'CEP: ' . (string)$enderDest->CEP;
+            }
+            
+            return implode(', ', $partes);
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Extrai produtos completos do XML
+     * 
+     * @param \SimpleXMLElement $infNFe
+     * @return array
+     */
+    private function extrairProdutosCompletos(\SimpleXMLElement $infNFe): array
+    {
+        try {
+            $produtos = [];
+            $det = $infNFe->det ?? [];
+            
+            foreach ($det as $item) {
+                $prod = $item->prod ?? null;
+                if (!$prod) continue;
+                
+                $imposto = $item->imposto ?? null;
+                $icms = $imposto->ICMS ?? null;
+                $ipi = $imposto->IPI ?? null;
+                $pis = $imposto->PIS ?? null;
+                $cofins = $imposto->COFINS ?? null;
+                
+                $produtos[] = [
+                    'codigo' => (string)($prod->cProd ?? ''),
+                    'nome' => (string)($prod->xProd ?? ''),
+                    'descricao' => (string)($prod->xProd ?? ''),
+                    'ncm' => (string)($prod->NCM ?? ''),
+                    'cfop' => (string)($prod->CFOP ?? ''),
+                    'unidade' => (string)($prod->uCom ?? ''),
+                    'quantidade' => (string)($prod->qCom ?? '0'),
+                    'valor_unitario' => (string)($prod->vUnCom ?? '0.00'),
+                    'valor_total' => (string)($prod->vProd ?? '0.00'),
+                    'valor_desconto' => (string)($prod->vDesc ?? '0.00'),
+                    'valor_frete' => (string)($prod->vFrete ?? '0.00'),
+                    'valor_seguro' => (string)($prod->vSeg ?? '0.00'),
+                    'valor_outros' => (string)($prod->vOutro ?? '0.00'),
+                    'icms' => $this->extrairIcms($icms),
+                    'ipi' => $this->extrairIpi($ipi),
+                    'pis' => $this->extrairPis($pis),
+                    'cofins' => $this->extrairCofins($cofins)
+                ];
+            }
+            
+            return $produtos;
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair produtos do XML', ['erro' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados da nota
+     * 
+     * @param \SimpleXMLElement $infNFe
+     * @param string $chaveAcesso
+     * @return array
+     */
+    private function extrairDadosNota(\SimpleXMLElement $infNFe, string $chaveAcesso): array
+    {
+        try {
+            $ide = $infNFe->ide ?? null;
+            $total = $infNFe->total ?? null;
+            
+            $dataEmissao = '';
+            if ($ide && $ide->dhEmi) {
+                $dataEmissao = date('d/m/Y', strtotime((string)$ide->dhEmi));
+            }
+            
+            $valorTotal = '0.00';
+            if ($total && $total->ICMSTot) {
+                $valorTotal = (string)($total->ICMSTot->vNF ?? '0.00');
+            }
+            
+            return [
+                'numero_nota' => (string)($ide->nNF ?? substr($chaveAcesso, 25, 9)),
+                'serie' => (string)($ide->serie ?? ''),
+                'data_emissao' => $dataEmissao,
+                'data_saida' => $ide && $ide->dhSaiEnt ? date('d/m/Y', strtotime((string)$ide->dhSaiEnt)) : '',
+                'valor_total' => $valorTotal,
+                'valor_produtos' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vProd ?? '0.00') : '0.00',
+                'valor_icms' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vICMS ?? '0.00') : '0.00',
+                'valor_ipi' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vIPI ?? '0.00') : '0.00',
+                'valor_pis' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vPIS ?? '0.00') : '0.00',
+                'valor_cofins' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vCOFINS ?? '0.00') : '0.00',
+                'valor_frete' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vFrete ?? '0.00') : '0.00',
+                'valor_seguro' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vSeg ?? '0.00') : '0.00',
+                'valor_desconto' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vDesc ?? '0.00') : '0.00',
+                'valor_outros' => $total && $total->ICMSTot ? (string)($total->ICMSTot->vOutro ?? '0.00') : '0.00'
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair dados da nota', ['erro' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Extrai impostos da nota
+     * 
+     * @param \SimpleXMLElement $infNFe
+     * @return array
+     */
+    private function extrairImpostos(\SimpleXMLElement $infNFe): array
+    {
+        try {
+            $total = $infNFe->total ?? null;
+            if (!$total || !$total->ICMSTot) {
+                return [];
+            }
+            
+            $icmsTot = $total->ICMSTot;
+            
+            return [
+                'icms' => [
+                    'base_calculo' => (string)($icmsTot->vBC ?? '0.00'),
+                    'valor' => (string)($icmsTot->vICMS ?? '0.00'),
+                    'isento' => (string)($icmsTot->vICMSDeson ?? '0.00'),
+                    'outros' => (string)($icmsTot->vICMSOutros ?? '0.00')
+                ],
+                'ipi' => [
+                    'valor' => (string)($icmsTot->vIPI ?? '0.00')
+                ],
+                'pis' => [
+                    'valor' => (string)($icmsTot->vPIS ?? '0.00')
+                ],
+                'cofins' => [
+                    'valor' => (string)($icmsTot->vCOFINS ?? '0.00')
+                ],
+                'total_tributos' => (string)($icmsTot->vTotTrib ?? '0.00')
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair impostos', ['erro' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados do ICMS
+     * 
+     * @param \SimpleXMLElement|null $icms
+     * @return array
+     */
+    private function extrairIcms(?\SimpleXMLElement $icms): array
+    {
+        if (!$icms) return [];
+        
+        try {
+            return [
+                'situacao' => (string)($icms->ICMS00->CST ?? $icms->ICMS10->CST ?? $icms->ICMS20->CST ?? $icms->ICMS30->CST ?? $icms->ICMS40->CST ?? $icms->ICMS51->CST ?? $icms->ICMS60->CST ?? $icms->ICMS70->CST ?? $icms->ICMS90->CST ?? ''),
+                'base_calculo' => (string)($icms->ICMS00->vBC ?? $icms->ICMS10->vBC ?? $icms->ICMS20->vBC ?? $icms->ICMS30->vBC ?? $icms->ICMS40->vBC ?? $icms->ICMS51->vBC ?? $icms->ICMS60->vBC ?? $icms->ICMS70->vBC ?? $icms->ICMS90->vBC ?? '0.00'),
+                'aliquota' => (string)($icms->ICMS00->pICMS ?? $icms->ICMS10->pICMS ?? $icms->ICMS20->pICMS ?? $icms->ICMS30->pICMS ?? $icms->ICMS40->pICMS ?? $icms->ICMS51->pICMS ?? $icms->ICMS60->pICMS ?? $icms->ICMS70->pICMS ?? $icms->ICMS90->pICMS ?? '0.00'),
+                'valor' => (string)($icms->ICMS00->vICMS ?? $icms->ICMS10->vICMS ?? $icms->ICMS20->vICMS ?? $icms->ICMS30->vICMS ?? $icms->ICMS40->vICMS ?? $icms->ICMS51->vICMS ?? $icms->ICMS60->vICMS ?? $icms->ICMS70->vICMS ?? $icms->ICMS90->vICMS ?? '0.00')
+            ];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados do IPI
+     * 
+     * @param \SimpleXMLElement|null $ipi
+     * @return array
+     */
+    private function extrairIpi(?\SimpleXMLElement $ipi): array
+    {
+        if (!$ipi) return [];
+        
+        try {
+            return [
+                'classe_enquadramento' => (string)($ipi->IPITrib->clEnq ?? $ipi->IPINT->clEnq ?? ''),
+                'cnpj_produtor' => (string)($ipi->IPITrib->CNPJProd ?? $ipi->IPINT->CNPJProd ?? ''),
+                'codigo_selo' => (string)($ipi->IPITrib->cSelo ?? $ipi->IPINT->cSelo ?? ''),
+                'quantidade_selo' => (string)($ipi->IPITrib->qSelo ?? $ipi->IPINT->qSelo ?? '0'),
+                'codigo_enquadramento' => (string)($ipi->IPITrib->cEnq ?? $ipi->IPINT->cEnq ?? ''),
+                'base_calculo' => (string)($ipi->IPITrib->vBC ?? $ipi->IPINT->vBC ?? '0.00'),
+                'aliquota' => (string)($ipi->IPITrib->pIPI ?? $ipi->IPINT->pIPI ?? '0.00'),
+                'quantidade' => (string)($ipi->IPITrib->qUnid ?? $ipi->IPINT->qUnid ?? '0'),
+                'valor_unitario' => (string)($ipi->IPITrib->vUnid ?? $ipi->IPINT->vUnid ?? '0.00'),
+                'valor' => (string)($ipi->IPITrib->vIPI ?? $ipi->IPINT->vIPI ?? '0.00')
+            ];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados do PIS
+     * 
+     * @param \SimpleXMLElement|null $pis
+     * @return array
+     */
+    private function extrairPis(?\SimpleXMLElement $pis): array
+    {
+        if (!$pis) return [];
+        
+        try {
+            return [
+                'situacao' => (string)($pis->PISAliq->CST ?? $pis->PISQtde->CST ?? $pis->PISNT->CST ?? $pis->PISOutr->CST ?? ''),
+                'base_calculo' => (string)($pis->PISAliq->vBC ?? $pis->PISQtde->vBC ?? $pis->PISOutr->vBC ?? '0.00'),
+                'aliquota' => (string)($pis->PISAliq->pPIS ?? $pis->PISQtde->pPIS ?? $pis->PISOutr->pPIS ?? '0.00'),
+                'quantidade' => (string)($pis->PISQtde->qBCProd ?? '0'),
+                'valor_unitario' => (string)($pis->PISQtde->vAliqProd ?? '0.00'),
+                'valor' => (string)($pis->PISAliq->vPIS ?? $pis->PISQtde->vPIS ?? $pis->PISOutr->vPIS ?? '0.00')
+            ];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Extrai dados do COFINS
+     * 
+     * @param \SimpleXMLElement|null $cofins
+     * @return array
+     */
+    private function extrairCofins(?\SimpleXMLElement $cofins): array
+    {
+        if (!$cofins) return [];
+        
+        try {
+            return [
+                'situacao' => (string)($cofins->COFINSAliq->CST ?? $cofins->COFINSQtde->CST ?? $cofins->COFINSNT->CST ?? $cofins->COFINSOutr->CST ?? ''),
+                'base_calculo' => (string)($cofins->COFINSAliq->vBC ?? $cofins->COFINSQtde->vBC ?? $cofins->COFINSOutr->vBC ?? '0.00'),
+                'aliquota' => (string)($cofins->COFINSAliq->pCOFINS ?? $cofins->COFINSQtde->pCOFINS ?? $cofins->COFINSOutr->pCOFINS ?? '0.00'),
+                'quantidade' => (string)($cofins->COFINSQtde->qBCProd ?? '0'),
+                'valor_unitario' => (string)($cofins->COFINSQtde->vAliqProd ?? '0.00'),
+                'valor' => (string)($cofins->COFINSAliq->vCOFINS ?? $cofins->COFINSQtde->vCOFINS ?? $cofins->COFINSOutr->vCOFINS ?? '0.00')
+            ];
+        } catch (\Exception $e) {
+            return [];
         }
     }
 
