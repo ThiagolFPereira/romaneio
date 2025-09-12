@@ -179,7 +179,7 @@ class NotaFiscalController extends Controller
     public function historico(Request $request): JsonResponse
     {
         try {
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 30);
             $search = $request->get('search', '');
             $dataFiltro = $request->get('data', '');
             $dataInicio = $request->get('data_inicio', '');

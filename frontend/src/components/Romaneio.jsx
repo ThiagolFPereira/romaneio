@@ -72,6 +72,7 @@ const Romaneio = () => {
         try {
             const params = new URLSearchParams();
             params.append('page', paginaAtual);
+            params.append('per_page', 30); // 30 notas por página
             if (busca) params.append('search', busca);
 
             // Debug dos filtros de data
