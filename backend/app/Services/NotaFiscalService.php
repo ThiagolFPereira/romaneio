@@ -1179,7 +1179,8 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
         
         // Gera data de emissão baseada na chave (formato: DD/MM/AAAA)
         $dia = str_pad(($hash % 28) + 1, 2, '0', STR_PAD_LEFT); // Dia entre 01-28
-        $dataEmissao = $dia . '/' . $mes . '/' . $ano;
+        $mesValido = str_pad(($hash % 12) + 1, 2, '0', STR_PAD_LEFT); // Mês entre 01-12
+        $dataEmissao = $dia . '/' . $mesValido . '/' . $ano;
         
         // Se destinatário não foi encontrado, gera um realista
         if ($destinatario === 'Cliente não informado') {
@@ -1379,12 +1380,13 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
                 // Monta endereço completo
                 $endereco = $this->montarEnderecoCompleto($data);
                 
-                // Gera destinatário realista se não tiver nome fantasia
-                $destinatario = $data['nome_fantasia'] ?? $this->gerarNomeDestinatarioRealista($chaveAcesso);
+                // Gera destinatário realista (sempre diferente do emitente)
+                $destinatario = $this->gerarNomeDestinatarioRealista($chaveAcesso);
                 
                 // Gera data de emissão correta (formato: DD/MM/AAAA)
                 $dia = str_pad(($hash % 28) + 1, 2, '0', STR_PAD_LEFT); // Dia entre 01-28
-                $dataEmissao = $dia . '/' . $mes . '/' . $ano;
+                $mesValido = str_pad(($hash % 12) + 1, 2, '0', STR_PAD_LEFT); // Mês entre 01-12
+                $dataEmissao = $dia . '/' . $mesValido . '/' . $ano;
                 
                 return [
                     'chave_acesso' => $chaveAcesso,
@@ -1459,7 +1461,8 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
         
         // Gera data de emissão correta (formato: DD/MM/AAAA)
         $dia = str_pad(($hash % 28) + 1, 2, '0', STR_PAD_LEFT); // Dia entre 01-28
-        $dataEmissao = $dia . '/' . $mes . '/' . $ano;
+        $mesValido = str_pad(($hash % 12) + 1, 2, '0', STR_PAD_LEFT); // Mês entre 01-12
+        $dataEmissao = $dia . '/' . $mesValido . '/' . $ano;
         
         return [
             'chave_acesso' => $chaveAcesso,
