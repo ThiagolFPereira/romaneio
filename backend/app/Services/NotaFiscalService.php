@@ -1197,12 +1197,37 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
             $destinatario = $this->gerarNomeDestinatarioRealista($chaveAcesso);
         }
         
+        // Tenta obter endereço real do destinatário via XML
+        $endereco = $this->obterEnderecoRealNFe($chaveAcesso);
+        
+        // Debug: verificar estrutura dos dados reais
+        Log::info('Estrutura dos dados reais para endereço', [
+            'chave' => $chaveAcesso,
+            'tem_dest' => isset($dadosReais['dest']),
+            'dest_keys' => isset($dadosReais['dest']) ? array_keys($dadosReais['dest']) : [],
+            'tem_enderDest' => isset($dadosReais['dest']['enderDest']),
+            'enderDest_keys' => isset($dadosReais['dest']['enderDest']) ? array_keys($dadosReais['dest']['enderDest']) : []
+        ]);
+        
+        // Se não conseguir obter endereço real, tenta extrair dos dados reais
+        if (empty($endereco) && isset($dadosReais['dest']['enderDest'])) {
+            $endereco = $this->extrairEnderecoDosDadosReais($dadosReais['dest']['enderDest']);
+        }
+        
+        // Se ainda não conseguir obter endereço real, mostra como não disponível
+
+        
+        if (empty($endereco)) {
+            $endereco = 'Endereço não disponível';
+        }
+        
         Log::info('Dados reais processados via Meu Danfe', [
             'chave' => $chaveAcesso,
             'emitente' => $emitente,
             'destinatario' => $destinatario,
             'valor_total' => $valorTotal,
-            'data_emissao' => $dataEmissao
+            'data_emissao' => $dataEmissao,
+            'endereco' => $endereco
         ]);
         
         return [
@@ -1223,9 +1248,54 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
                     'codigo' => 'PROD001'
                 ]
             ],
-            'endereco' => 'Endereço do Cliente, 456, Bairro do Cliente, São Paulo, SP, CEP: 02000000',
+            'endereco' => $endereco,
             'motivo' => 'Dados reais processados via API Meu Danfe'
         ];
+    }
+
+    /**
+     * Extrai endereço dos dados reais obtidos da SEFAZ
+     * 
+     * @param array $enderDest
+     * @return string
+     */
+    private function extrairEnderecoDosDadosReais(array $enderDest): string
+    {
+        try {
+            $partes = [];
+            
+            if (!empty($enderDest['xLgr'])) {
+                $partes[] = $enderDest['xLgr'];
+            }
+            
+            if (!empty($enderDest['nro'])) {
+                $partes[] = $enderDest['nro'];
+            }
+            
+            if (!empty($enderDest['xBairro'])) {
+                $partes[] = $enderDest['xBairro'];
+            }
+            
+            if (!empty($enderDest['xMun'])) {
+                $partes[] = $enderDest['xMun'];
+            }
+            
+            if (!empty($enderDest['UF'])) {
+                $partes[] = $enderDest['UF'];
+            }
+            
+            if (!empty($enderDest['CEP'])) {
+                $partes[] = 'CEP: ' . $enderDest['CEP'];
+            }
+            
+            return implode(', ', $partes);
+            
+        } catch (\Exception $e) {
+            Log::warning('Erro ao extrair endereço dos dados reais', [
+                'erro' => $e->getMessage()
+            ]);
+            return '';
+        }
     }
 
     /**
@@ -1387,16 +1457,11 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
                 // Gera produtos baseados na chave
                 $produtos = $this->gerarProdutosBaseadosNaChave($chaveAcesso, $valor);
                 
-                // Tenta obter endereço real da NFe primeiro
+                // Tenta obter endereço real da NFe (destinatário)
                 $endereco = $this->obterEnderecoRealNFe($chaveAcesso);
                 
-                // Se não conseguir, usa endereço da empresa (emitente)
+                // Se não conseguir obter endereço real do destinatário, mostra como não disponível
                 if (empty($endereco)) {
-                    $endereco = $this->montarEnderecoCompleto($data);
-                }
-                
-                // Se ainda não tiver, mostra como não disponível
-                if (empty($endereco) || $endereco === 'Endereço não disponível') {
                     $endereco = 'Endereço não disponível';
                 }
                 
@@ -1548,6 +1613,40 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
     }
 
 
+    /**
+     * Método público para testar obterEnderecoRealNFe
+     * 
+     * @param string $chaveAcesso
+     * @return string
+     */
+    public function testarObterEnderecoReal(string $chaveAcesso): string
+    {
+        return $this->obterEnderecoRealNFe($chaveAcesso);
+    }
+
+    /**
+     * Método público para testar obterXmlNFe
+     * 
+     * @param string $chaveAcesso
+     * @return string
+     */
+    public function testarObterXmlNFe(string $chaveAcesso): string
+    {
+        $xml = $this->obterXmlNFe($chaveAcesso);
+        return $xml ? 'XML obtido com sucesso (' . strlen($xml) . ' caracteres)' : 'XML não obtido';
+    }
+
+    /**
+     * Método público para testar gerarQrCodeUrl
+     * 
+     * @param string $chaveAcesso
+     * @return string
+     */
+    public function testarGerarQrCodeUrl(string $chaveAcesso): string
+    {
+        $url = $this->gerarQrCodeUrl($chaveAcesso, 1);
+        return 'URL gerada: ' . $url;
+    }
 
     /**
      * Gera produtos baseados na chave de acesso
