@@ -1377,8 +1377,18 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
                 // Gera produtos baseados na chave
                 $produtos = $this->gerarProdutosBaseadosNaChave($chaveAcesso, $valor);
                 
-                // Monta endereço completo
-                $endereco = $this->montarEnderecoCompleto($data);
+                // Tenta obter endereço real da NFe primeiro
+                $endereco = $this->obterEnderecoRealNFe($chaveAcesso);
+                
+                // Se não conseguir, usa endereço da empresa (emitente)
+                if (empty($endereco)) {
+                    $endereco = $this->montarEnderecoCompleto($data);
+                }
+                
+                // Se ainda não tiver, mostra como não disponível
+                if (empty($endereco) || $endereco === 'Endereço não disponível') {
+                    $endereco = 'Endereço não disponível';
+                }
                 
                 // Gera destinatário realista (sempre diferente do emitente)
                 $destinatario = $this->gerarNomeDestinatarioRealista($chaveAcesso);
@@ -1464,6 +1474,12 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
         $mesValido = str_pad(($hash % 12) + 1, 2, '0', STR_PAD_LEFT); // Mês entre 01-12
         $dataEmissao = $dia . '/' . $mesValido . '/' . $ano;
         
+        // Tenta obter endereço real da NFe via SEFAZ
+        $endereco = $this->obterEnderecoRealNFe($chaveAcesso);
+        if (empty($endereco)) {
+            $endereco = 'Endereço não disponível';
+        }
+        
         return [
             'chave_acesso' => $chaveAcesso,
             'emitente' => $empresa,
@@ -1473,10 +1489,54 @@ retorno            <xNome>Destinatário via Meu Danfe</xNome>
             'data_emissao' => $dataEmissao,
             'numero_nota' => $numero,
             'produtos' => $produtos,
-            'endereco' => 'Endereço não disponível',
+            'endereco' => $endereco,
             'motivo' => 'Dados baseados na chave de acesso'
         ];
     }
+
+    /**
+     * Obtém endereço real do destinatário da NFe via SEFAZ
+     * 
+     * @param string $chaveAcesso
+     * @return string
+     */
+    private function obterEnderecoRealNFe(string $chaveAcesso): string
+    {
+        try {
+            // Tenta obter XML da NFe via SEFAZ
+            $xmlNFe = $this->obterXmlNFe($chaveAcesso);
+            
+            if (!$xmlNFe) {
+                Log::info('XML da NFe não encontrado para extrair endereço', ['chave' => $chaveAcesso]);
+                return '';
+            }
+            
+            // Processa o XML para extrair endereço do destinatário
+            $xml = simplexml_load_string($xmlNFe);
+            if (!$xml) {
+                Log::warning('Erro ao processar XML da NFe para endereço', ['chave' => $chaveAcesso]);
+                return '';
+            }
+            
+            // Extrai endereço do destinatário
+            $endereco = $this->extrairEnderecoDestinatario($xml);
+            
+            Log::info('Endereço real extraído da NFe', [
+                'chave' => $chaveAcesso,
+                'endereco' => $endereco
+            ]);
+            
+            return $endereco;
+            
+        } catch (\Exception $e) {
+            Log::warning('Erro ao obter endereço real da NFe', [
+                'chave' => $chaveAcesso,
+                'erro' => $e->getMessage()
+            ]);
+            return '';
+        }
+    }
+
 
     /**
      * Gera produtos baseados na chave de acesso
