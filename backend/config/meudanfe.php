@@ -11,9 +11,7 @@ return [
     |
     */
 
-    'api_url' => env('MEUDANFE_API_URL', 'https://ws.meudanfe.com/api/v1/get/nfe/xmltodanfepdf/API'),
-    
-    'api_key' => env('MEUDANFE_API_KEY', ''),
+    'api_url' => env('MEUDANFE_API_URL', 'https://meudanfe.com.br/api/nfe/'),
     
     'timeout' => env('MEUDANFE_TIMEOUT', 30),
     

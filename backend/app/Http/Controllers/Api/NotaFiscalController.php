@@ -64,7 +64,7 @@ class NotaFiscalController extends Controller
                 ], 404);
             }
 
-            return response()->json($dadosNota);
+        return response()->json($dadosNota);
 
         } catch (\Exception $e) {
             return response()->json([
